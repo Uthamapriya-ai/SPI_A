@@ -136,7 +136,7 @@ a = 0.30
 mas = np.zeros(Nx)
 mas=np.sqrt(np.square(FX)+np.square(FY))<=a
 Back_prop=ifft2((mas*holo_four)*ASM_func(wavelength,k,FX,FY,30))
-plot2(abs(holo_four),'Reconstructed hologram in Fourier domain',0,blk_size)
+plot2(abs(Back_prop),'Reconstructed hologram in Fourier domain',0,blk_size)
 # =============================================================================
     
 end = time.time()
