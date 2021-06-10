@@ -96,7 +96,7 @@ angle = 25 # tilt angle
 prop = np.zeros(Nx)
 tilt = np.exp(1j*k*math.sin(math.radians(angle))*X);
 prop = ifft2((fftshift(fft2(gaut*tilt))*ASM_func(wavelength,k,FX,FY,25)))
-U = ifft2(fftshift(fft2(gau*obj))*ASM_func(wavelength,k,FX,FY,20))
+U = ifft2(fftshift(fft2(gau))*ASM_func(wavelength,k,FX,FY,20))
 hologram= np.square(prop + U)
 # plot2(abs(U),'Diffracted Object beam',0,Nx)
 # plot2(abs(prop),'Reference beam',0,Nx)
@@ -104,8 +104,8 @@ plot2(abs(hologram),'Hologram',0,Nx)
 # =============================================================================
 
 ### Mask & SPI Measurements =============================================================================
-blk_size = 64;
-fact = 5;
+blk_size = 32;
+fact = 10;
 Measurements = blk_size*blk_size;
 delta = np.zeros(Measurements); t = np.zeros(Measurements);h = np.zeros(Measurements)
 for i in range(0,Measurements-1):
