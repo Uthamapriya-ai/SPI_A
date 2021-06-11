@@ -63,20 +63,20 @@ def ASM_func(wavelen,k,Fx,Fy,Z):
 
                
 frequency = 0.35e12; # in THz
-wavelength=sp.nu2lambda(frequency)*1000; # wavelength in meters
+wavelength=sp.nu2lambda(frequency)*1; # wavelength in meters
 k = (2*sp.pi)/wavelength; # wavenumber in rad/meters
 
 ### Sampling =============================================================================
-Lx = 50; # Window size
+Lx = 50e-3; # Window size
 Nx = 320; # Pixels
 r,deltax,X,Y,fx,fy,FX,FY = Sampling(Lx,Nx)
 # plot2(r,'radial',fx,fy)
 # =============================================================================
 
 ## Gaussian =============================================================================
-Beamwaist = 0.75; # beamwaist in meters
-z = 10 #propagation distance in meters
-xt = -15
+Beamwaist = 0.75e-3; # beamwaist in meters
+z = 10e-3 #propagation distance in meters
+xt = -15e-3
 rt = np.sqrt(np.square(X-xt)+np.square(Y));
 gau,gaut = gaussian(Beamwaist,z,wavelength,k,r,rt)
 # plot2(abs(gau),'propagated Gaussian beam z=10 mm',0,Nx)
@@ -84,9 +84,9 @@ gau,gaut = gaussian(Beamwaist,z,wavelength,k,r,rt)
 # =======================================================================================
 
 ## Object =============================================================================
-physize = 40;
+physize = 40e-3;
 w = 5; # Number of spokes
-obj=object(w,physize,Nx,deltax)
+obj=object(w,physize,Nx,deltax) # Object 
 # plot2((obj),'Object',0,Nx) 
 # =============================================================================
 
@@ -94,10 +94,10 @@ obj=object(w,physize,Nx,deltax)
 ## Beam Propagation to the SPI Unit including Holography =============================================================================
 angle = 25 # tilt angle
 prop = np.zeros(Nx)
-tilt = np.exp(1j*k*math.sin(math.radians(angle))*X);
-prop = ifft2((fftshift(fft2(gaut*tilt))*ASM_func(wavelength,k,FX,FY,25)))
-U = ifft2(fftshift(fft2(gau))*ASM_func(wavelength,k,FX,FY,20))
-hologram= np.square(prop + U)
+tilt = np.exp(1j*k*math.sin(math.radians(angle))*X); # tilt function
+prop = ifft2((fftshift(fft2(gaut*tilt))*ASM_func(wavelength,k,FX,FY,25e-3))) # reference beam propagation to the mask plane
+U = ifft2(fftshift(fft2(gau*obj))*ASM_func(wavelength,k,FX,FY,20e-3)) # object beam propagation to the mask plane
+hologram= (prop + U)
 # plot2(abs(U),'Diffracted Object beam',0,Nx)
 # plot2(abs(prop),'Reference beam',0,Nx)
 plot2(abs(hologram),'Hologram',0,Nx)
@@ -105,39 +105,44 @@ plot2(abs(hologram),'Hologram',0,Nx)
 
 ### Mask & SPI Measurements =============================================================================
 blk_size = 32;
-fact = 10;
+fact =10; # block size
 Measurements = blk_size*blk_size;
 delta = np.zeros(Measurements); t = np.zeros(Measurements);h = np.zeros(Measurements)
+p = int((Nx-(blk_size*fact))/2)
 for i in range(0,Measurements-1):
     delta[i]=1
     maskp = (np.reshape(0.5*(np.ones(Measurements)+fwht(delta)),(blk_size,blk_size))).astype(np.float64);
-    # plot2(mask,'hadamrd',0,32)
     m_mask = np.kron(maskp,np.ones((fact,fact)));
-    t[i] = np.sum(abs(np.multiply((hologram),m_mask))) 
-    h[i] = np.sum(abs(np.multiply((hologram),(1-m_mask)))) 
+    m_mask = np.pad(m_mask,p,'constant')
+    t[i] = np.sum(abs(np.multiply((hologram),m_mask)))  # object seen by one set of masks
+    h[i] = np.sum(abs(np.multiply((hologram),(1-m_mask))))  # object seen by the complimentary set
     delta = np.zeros(Measurements);
 # =============================================================================
 
 ## Reconstruction =============================================================================
-rec = (ifwht(t-h))
+rec = (ifwht(t-h)) # applying ifwht on obtained 1d data
 for i in range(0,Measurements):
     rec[i]=float(rec[i])
 res = np.reshape(rec,(blk_size,blk_size))
-plot2((res),'SPI Reconstructed Image',0,blk_size) 
+plot2((res),'SPI Reconstructed Image',0,blk_size) # SPI Reconstructed image
 # =============================================================================
 
 ## Holography reconstruction =============================================================================
-Lx = blk_size*fact*deltax
 r,deltax,X,Y,fx,fy,FX,FY = Sampling(Lx,blk_size)
-tiltr =  np.exp(1j*k*math.sin(math.radians(angle))*X);
-holo_four = fftshift(fft2(abs(res)))
+tiltr =  np.exp(-1j*k*math.sin(math.radians(angle))*X); # tilt correction
+holo_four = fftshift(fft2(abs(res)*tiltr)) # SPI reconstructed object in fourier domain
 #Filtering
-a = 0.30
+a =380.30
 mas = np.zeros(Nx)
-mas=np.sqrt(np.square(FX)+np.square(FY))<=a
-Back_prop=ifft2((mas*holo_four)*ASM_func(wavelength,k,FX,FY,30))
-plot2(abs(Back_prop),'Reconstructed hologram in Fourier domain',0,blk_size)
+mas=np.sqrt(np.square(FX)+np.square(FY))<=a # circular binary filter
+Back_prop=(ifft2((mas*holo_four)*ASM_func(wavelength,k,FX,FY,20e-3))) # reconstruction from backpropagation
+Back_propimag = np.arctan2(np.imag(Back_prop),np.real(Back_prop)) # Phase profile
+# plot2(abs(mas),'Circular Binary radius',0,blk_size)
+# plot2(abs(holo_four),'Reconstructed hologram in Fourier domain',0,blk_size)
+plot2(abs(Back_prop),'Reconstructed object from backpropagation',0,blk_size)
+
 # =============================================================================
     
 end = time.time()
-print('Execution time in secs:', (end-start))  
+print('Execution time in secs:', (end-start))   
+    
