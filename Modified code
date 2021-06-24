@@ -76,7 +76,7 @@ def inv_trans(y,Measurements):
     
 
 def threshold(x,theta):
-    return(np.multiply(np.sign(x),(np.max(np.abs(x)-theta,0))))
+    return(np.sign(x)*(np.maximum(np.abs(x)-theta,0)))
           
 frequency = 0.35e12; # in THz
 wavelength=sp.nu2lambda(frequency)*1; # wavelength in meters
@@ -109,7 +109,7 @@ plot2((obj),'Object',0,Nx,0)
 
 ## Beam Propagation to the SPI Unit including Holography =============================================================================
 x = ifft2(fftshift(fft2(obj))*ASM_func(wavelength,k,FX,FY,20e-3)) # object beam propagation to the mask plane
-plot2(abs(x),'Diffracted Object beam',0,Nx,0)
+plot2(abs(x),'Diffracted Object beam',0,Nx,1)
 
 # =============================================================================
 
@@ -126,16 +126,17 @@ plot2((rec_x),'SPI Reconstructed Image',0,blk_size,1) # SPI Reconstructed image
 
 # Implementing ISTA Code=============================================================================
 # Initialization
+# Minimization of LASSO
 k_iter = 200;
-Lambda = 1e-6;
+Lambda = 1e-6; 
 L = 5e-2;
 x0 = np.zeros(np.shape(x)); min_x = np.zeros(k_iter);
 for i in range(1,k_iter):
-    v=x0+(1/L)*(inv_trans(np.array(y)-np.array(for_trans(x0,Measurements)),Measurements));
-    x0=threshold(v,Lambda/L);
-    min_x[i] = 1/2*np.square(norm(np.array(for_trans(x0,Measurements)),2))+Lambda*norm(x0,1)
+    x0=x0+(1/L)*(inv_trans(np.array(y)-np.array(for_trans(x0,Measurements)),Measurements));
+    x0=threshold(x0,Lambda/L);
+    min_x[i] = (1/2)*np.square(norm((np.array(y,dtype=float)-np.array(for_trans(x0,Measurements),dtype=float)),2))+Lambda*norm(x0,1)
 plot2((x0),'Reconstructed using ISTA',0,blk_size,1) # SPI Reconstructed image
     
 # =============================================================================
 end = time.time()
-print('Execution time in secs:', (end-start))   
+print('Execution time in secs:', (end-start))    
