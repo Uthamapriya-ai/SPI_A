@@ -55,31 +55,54 @@ plot2(abs(x),'Diffracted Object beam',0,Nx,1)
 blk_size =128;                                                                 # block size 
 fact = 1; 
 Measurements =96*96                                                            #Total no of measurements
+mask ='hadamard'
 dim=blk_size*blk_size;                                                         #Total no of pixels
 #define random hadamard masks
 num=np.linspace(0,dim-1,dim)
 num2= np.random.permutation(np.array(num,dtype=int))
 masks_ind = num2[0: Measurements]                                              #Mask indices choosen randomly        
+if mask == 'hadamard':
+    delta = hadamard(dim)#hdamard
+    d=delta[masks_ind]#hadamard
+elif mask == 'Bernoulli':
+    delta  = np.random.randint(2,size=(Measurements,dim))
+    dinv = np.linalg.pinv(np.dot(delta.T,delta))    
 # the object
 x_obj   = np.reshape(x,(Nx*Nx,1))                                              #Object reshaped to column vector
 def A(x):
-    tmp=ifwht(x,'hadamard');                                                   #forward transform
-    #tmp=ifft(x);
-    return(tmp[masks_ind])
+    if mask == 'hadamard':
+        tmp=ifwht(x,'hadamard');                                                   #forward transform
+        return(tmp[masks_ind])
+    elif mask == 'Bernoulli':
+        tmp = np.dot(delta,x)
+        return tmp
+    else:
+        #tmp=ifft(x);
+        return(tmp[masks_ind])
 
 def At(y):
-    tmp = np.zeros([dim,1],dtype=complex);                                     #transpose of forward transform
-    tmp[masks_ind]=y;
-    return fwht(tmp,'hadamard');
-    #return fft(tmp);
+    if mask == 'hadamard':
+        tmp = np.zeros([dim,1],dtype=complex);                                     #transpose of forward transform
+        tmp[masks_ind]=y;
+        return fwht(tmp,'hadamard');
+    elif mask == 'Bernoulli':
+        #tmp = np.dot(np.linalg.inv(delta),y)# inverse transform M=N^2
+        tmp = np.dot(np.dot(dinv,delta.T),y)# pseudoinverse for M<N^2
+        #tmp = np.dot(delta.T,y)#transpose matrix
+        return tmp
+    else:
+        tmp = np.zeros([dim,1],dtype=complex);                                     #transpose of forward transform
+        tmp[masks_ind]=y;
+        return fft(tmp);
     
 # (2) create the measurements
 y_meas = A(x_obj);                                                             #measurement vector 
 plt.plot(y_meas) 
 # Implementing ISTA Code=============================================================================
-k_iter = 10;                                                                   # no of iterations
-Lambda = 1e-14;                                                                # hyperparameter
-L = 1e5;                                                                       #Lipschitz constant
+k_iter = 1000;                                                                   # no of iterations
+L = np.linalg.eigenvals(np.dot(d.T,d),ord=2)                                       #Lipschitz constant
+L=np.linalg.norm(d**2,ord=2)
+Lambda = 0.1*max(np.abs(At(y_meas)))                                           # hyperparameter
 x_rec,min_x = ISTA(k_iter,y_meas,A,At,L,Lambda,dim).forward()                  #ISTA 
 p = np.reshape(np.array(x_rec),(blk_size,blk_size))
 plot2(abs(p),'Reconstructed using ISTA '+str(k_iter) +' iterations' ,0,blk_size,1) 
@@ -89,7 +112,6 @@ plt.ylabel("Objective Function")
 # =============================================================================
 end = time.time()
 print('Execution time in secs:', (end-start)) 
-# =============================================================================
 
 
 
