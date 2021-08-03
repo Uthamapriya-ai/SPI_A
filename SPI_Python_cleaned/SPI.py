@@ -101,7 +101,7 @@ plt.plot(y_meas)
 # Implementing ISTA Code=============================================================================
 k_iter = 1000;                                                                   # no of iterations
 L = np.linalg.eigenvals(np.dot(d.T,d),ord=2)                                       #Lipschitz constant
-L=np.linalg.norm(d**2,ord=2)
+#L=np.linalg.norm(d**2,ord=2)
 Lambda = 0.1*max(np.abs(At(y_meas)))                                           # hyperparameter
 x_rec,min_x = ISTA(k_iter,y_meas,A,At,L,Lambda,dim).forward()                  #ISTA 
 p = np.reshape(np.array(x_rec),(blk_size,blk_size))
