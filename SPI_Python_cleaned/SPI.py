@@ -4,7 +4,6 @@ Created on Sun Jul 25 01:14:53 2021
 
 @author: SvrenA
 """
-
 import math
 import numpy as np
 from numpy.lib.scimath import sqrt as csqrt
@@ -14,7 +13,7 @@ from scipy.fftpack import fft,ifft, fft2, ifft2 , ifftshift, fftshift
 from scipy.linalg import hadamard
 import matplotlib.pyplot as plt
 import time
-from my_fwht import fwht, ifwht
+from my_fwht import fwht, ifwht, fftmask
 from Optical_func import Optical_func
 from ISTA import ISTA
 
@@ -34,7 +33,7 @@ frequency = 0.35e12;                                                           #
 wavelength=sp.nu2lambda(frequency)*1;                                          # wavelength in meters
 ### Sampling parameters =============================================================================
 Lx = 50e-3;                                                                    # Window size in meters
-Nx =128                                                                        # sampling
+Nx =64                                                                        # sampling
 ## Gaussian beam parameters=============================================================================
 Beamwaist = 0.75e-3;                                                           # beamwaist in meters
 z = 50e-3                                                                      #propagation distance in meters
@@ -52,21 +51,25 @@ plot2((obj),'Object',0,Nx,0)
 x = ifft2(fftshift(fft2(obj*gau))*g.ASM_func(FX,FY,20e-3))                     # object beam propagation to the mask plane
 plot2(abs(x),'Diffracted Object beam',0,Nx,1)
 ### Mask & SPI Measurements =============================================================================
-blk_size =128;                                                                 # block size 
+blk_size =64;                                                                 # block size 
 fact = 1; 
-Measurements =96*96                                                            #Total no of measurements
-mask ='hadamard'
+Measurements =4096                                                            #Total no of measurements
+mask ='Fourier'
 dim=blk_size*blk_size;                                                         #Total no of pixels
 #define random hadamard masks
 num=np.linspace(0,dim-1,dim)
 num2= np.random.permutation(np.array(num,dtype=int))
 masks_ind = num2[0: Measurements]                                              #Mask indices choosen randomly        
 if mask == 'hadamard':
-    delta = hadamard(dim)#hdamard
-    d=delta[masks_ind]#hadamard
+    d= hadamard(dim)#hdamard
+    delta=d[masks_ind]#hadamard
 elif mask == 'Bernoulli':
     delta  = np.random.randint(2,size=(Measurements,dim))
-    dinv = np.linalg.pinv(np.dot(delta.T,delta))    
+    dinv = np.linalg.pinv(np.dot(delta.T,delta))
+elif mask == 'Fourier':
+    d =fftmask(dim)
+    delta=d[masks_ind]
+    
 # the object
 x_obj   = np.reshape(x,(Nx*Nx,1))                                              #Object reshaped to column vector
 def A(x):
@@ -77,7 +80,7 @@ def A(x):
         tmp = np.dot(delta,x)
         return tmp
     else:
-        #tmp=ifft(x);
+        tmp=ifft(x);
         return(tmp[masks_ind])
 
 def At(y):
@@ -90,7 +93,7 @@ def At(y):
         tmp = np.dot(np.dot(dinv,delta.T),y)# pseudoinverse for M<N^2
         #tmp = np.dot(delta.T,y)#transpose matrix
         return tmp
-    else:
+    elif mask == 'Fourier':
         tmp = np.zeros([dim,1],dtype=complex);                                     #transpose of forward transform
         tmp[masks_ind]=y;
         return fft(tmp);
@@ -98,13 +101,15 @@ def At(y):
 # (2) create the measurements
 y_meas = A(x_obj);                                                             #measurement vector 
 plt.plot(y_meas) 
+x_rec = np.dot(delta,y_meas)
 # Implementing ISTA Code=============================================================================
-k_iter = 1000;                                                                   # no of iterations
+k_iter = 1;                                                                   # no of iterations
 L = np.linalg.eigenvals(np.dot(d.T,d),ord=2)                                       #Lipschitz constant
 #L=np.linalg.norm(d**2,ord=2)
 Lambda = 0.1*max(np.abs(At(y_meas)))                                           # hyperparameter
 x_rec,min_x = ISTA(k_iter,y_meas,A,At,L,Lambda,dim).forward()                  #ISTA 
 p = np.reshape(np.array(x_rec),(blk_size,blk_size))
+plot2(abs(p),'recon',0,blk_size,1)
 plot2(abs(p),'Reconstructed using ISTA '+str(k_iter) +' iterations' ,0,blk_size,1) 
 plt.plot(min_x) 
 plt.xlabel("Number of Iterations")
